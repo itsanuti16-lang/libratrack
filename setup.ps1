@@ -15,24 +15,42 @@ Write-Host "|       LibraTrack - Setup             |" -ForegroundColor Cyan
 Write-Host "+======================================+" -ForegroundColor Cyan
 Write-Host ""
 
-# -- Dependency checks ---------------------------------------------------------------
-$missing = $false
-foreach ($tool in @("cmake", "git")) {
-    if (!(Get-Command $tool -ErrorAction SilentlyContinue)) {
-        Write-Host "  [X] Missing: $tool" -ForegroundColor Red
-        $missing = $true
-    } else {
-        $path = (Get-Command $tool).Source
-        Write-Host "  [OK] Found: $tool  ($path)" -ForegroundColor Green
+# -- Helper: install a package via winget -------------------------------------------
+function Install-WingetPackage {
+    param([string]$Name, [string]$WingetId)
+    Write-Host "  Installing $Name via winget..." -ForegroundColor Yellow
+    winget install --id $WingetId --silent --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  [X] Failed to install $Name automatically." -ForegroundColor Red
+        Write-Host "      Please install it manually and re-run setup.ps1" -ForegroundColor Red
+        exit 1
     }
+    # Refresh PATH in the current session
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
+                [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    Write-Host "  [OK] $Name installed." -ForegroundColor Green
 }
 
-if ($missing) {
-    Write-Host ""
-    Write-Host "Please install the missing tools and re-run setup.ps1" -ForegroundColor Red
-    Write-Host "  CMake : https://cmake.org/download/"
-    Write-Host "  Git   : https://git-scm.com"
+# -- Dependency checks (auto-install if missing) ------------------------------------
+if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Host "  [!] winget not found - cannot auto-install dependencies." -ForegroundColor Yellow
+    Write-Host "      Please install CMake and Git manually, then re-run setup.ps1" -ForegroundColor Yellow
+    Write-Host "      CMake : https://cmake.org/download/" -ForegroundColor White
+    Write-Host "      Git   : https://git-scm.com" -ForegroundColor White
     exit 1
+}
+
+foreach ($entry in @(
+    @{ Tool = "cmake"; WingetId = "Kitware.CMake"    },
+    @{ Tool = "git";   WingetId = "Git.Git"          }
+)) {
+    if (!(Get-Command $entry.Tool -ErrorAction SilentlyContinue)) {
+        Write-Host "  [X] Missing: $($entry.Tool)" -ForegroundColor Red
+        Install-WingetPackage -Name $entry.Tool -WingetId $entry.WingetId
+    } else {
+        $path = (Get-Command $entry.Tool).Source
+        Write-Host "  [OK] Found: $($entry.Tool)  ($path)" -ForegroundColor Green
+    }
 }
 Write-Host ""
 
