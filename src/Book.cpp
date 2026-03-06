@@ -17,7 +17,7 @@ Book::Book(const std::string& isbn,
 {}
 
 bool Book::isAvailable() const {
-    return copies_available_ >= 0;
+    return copies_available_ > 0;
 }
 
 bool Book::validateISBN() const {
